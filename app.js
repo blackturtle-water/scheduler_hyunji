@@ -1177,3 +1177,272 @@ function escapeHTML(str) {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
 }
+
+// ======================================================
+// FINAL SYNC PATCH: mobile status + safer download/upload sync
+// ======================================================
+
+function countAppData(data) {
+    if (!data) return 0;
+    return (Array.isArray(data.events) ? data.events.length : 0)
+        + (Array.isArray(data.todos) ? data.todos.length : 0)
+        + (Array.isArray(data.notes) ? data.notes.length : 0)
+        + (Array.isArray(data.ddays) ? data.ddays.length : 0);
+}
+
+function ensureMobileSyncStatusBox() {
+    let box = document.getElementById('mobile-sync-status-box');
+    if (box) return box;
+
+    box = document.createElement('div');
+    box.id = 'mobile-sync-status-box';
+    box.style.cssText = `
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        z-index: 3000;
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(17, 14, 36, 0.96);
+        border: 1px solid rgba(255,255,255,0.12);
+        color: #fff;
+        font-size: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+        backdrop-filter: blur(10px);
+    `;
+    box.innerHTML = `
+        <span id="mobile-sync-status-text">로컬 모드</span>
+        <button type="button" id="mobile-sync-status-button" style="
+            border: 0;
+            border-radius: 9px;
+            padding: 7px 10px;
+            background: #34d399;
+            color: #06120d;
+            font-weight: 700;
+            font-size: 12px;
+        ">동기화</button>
+    `;
+    document.body.appendChild(box);
+
+    const btn = document.getElementById('mobile-sync-status-button');
+    btn.addEventListener('click', async () => {
+        if (typeof executeGitHubSync === 'function') await executeGitHubSync();
+    });
+
+    return box;
+}
+
+function setMobileSyncStatus(message, mode = 'offline') {
+    const box = ensureMobileSyncStatusBox();
+    const text = document.getElementById('mobile-sync-status-text');
+    if (!box || !text) return;
+
+    box.style.display = 'flex';
+    text.textContent = message;
+
+    const colors = {
+        online: 'rgba(52, 211, 153, 0.20)',
+        syncing: 'rgba(251, 191, 36, 0.22)',
+        offline: 'rgba(255,255,255,0.06)',
+        error: 'rgba(248, 113, 113, 0.24)'
+    };
+    box.style.background = colors[mode] || colors.offline;
+}
+
+const __oldSaveDataToStorageSyncPatch = saveDataToStorage;
+function saveDataToStorage() {
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(state.events));
+    localStorage.setItem(STORAGE_KEYS.TODOS, JSON.stringify(state.todos));
+    localStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(state.notes));
+    localStorage.setItem(STORAGE_KEYS.DDAYS, JSON.stringify(state.ddays));
+
+    if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderCalendar === 'function') renderCalendar();
+    if (typeof renderTodoList === 'function') renderTodoList();
+    if (typeof renderNotesList === 'function') renderNotesList();
+
+    if (typeof AutoSync !== 'undefined' && typeof AutoSync.scheduleUpload === 'function') {
+        AutoSync.scheduleUpload(getFullAppState());
+    }
+}
+
+function restoreFullAppState(data) {
+    if (!data) return;
+    if (Array.isArray(data.events)) state.events = data.events;
+    if (Array.isArray(data.todos)) state.todos = data.todos;
+    if (Array.isArray(data.notes)) state.notes = data.notes;
+    if (Array.isArray(data.ddays)) state.ddays = data.ddays;
+
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(state.events));
+    localStorage.setItem(STORAGE_KEYS.TODOS, JSON.stringify(state.todos));
+    localStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(state.notes));
+    localStorage.setItem(STORAGE_KEYS.DDAYS, JSON.stringify(state.ddays));
+
+    if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderCalendar === 'function') renderCalendar();
+    if (typeof renderTodoList === 'function') renderTodoList();
+    if (typeof renderNotesList === 'function') renderNotesList();
+}
+
+function updateSyncIndicator() {
+    const indicator = document.getElementById('sidebar-sync-indicator');
+    const indicatorText = document.getElementById('sidebar-sync-text');
+    const configured = typeof GithubSync !== 'undefined' && GithubSync.isConfigured();
+
+    if (indicator && indicatorText) {
+        if (configured) {
+            indicator.className = 'sync-status online';
+            indicatorText.textContent = '클라우드 동기화';
+        } else {
+            indicator.className = 'sync-status offline';
+            indicatorText.textContent = '로컬 모드';
+        }
+    }
+
+    if (configured) {
+        const settings = GithubSync.getSettings();
+        const shortId = settings.gistId ? settings.gistId.slice(0, 8) : '미설정';
+        setMobileSyncStatus(`클라우드 동기화 | Gist: ${shortId}`, 'online');
+    } else {
+        setMobileSyncStatus('로컬 모드 | 설정에서 PAT/Gist ID 입력 필요', 'offline');
+    }
+}
+
+function renderSyncLogBox() {
+    const logBox = document.getElementById('sync-log-box');
+    const gistLink = document.getElementById('gist-url-link');
+    const lastSyncTimeEl = document.getElementById('last-sync-time');
+    if (!logBox || typeof GithubSync === 'undefined') return;
+
+    const settings = GithubSync.getSettings();
+    if (settings.pat) {
+        logBox.classList.remove('hidden');
+        if (settings.gistId) {
+            gistLink.href = `https://gist.github.com/${settings.gistId}`;
+            gistLink.textContent = 'Gist 열기';
+            gistLink.parentElement.style.display = 'flex';
+        } else {
+            gistLink.href = '#';
+            gistLink.textContent = 'Gist ID 없음';
+            gistLink.parentElement.style.display = 'flex';
+        }
+        lastSyncTimeEl.textContent = settings.lastSync ? new Date(settings.lastSync).toLocaleString('ko-KR') : '없음';
+    } else {
+        logBox.classList.add('hidden');
+    }
+}
+
+async function executeGitHubSync() {
+    const syncIndicator = document.getElementById('sidebar-sync-indicator');
+    const syncText = document.getElementById('sidebar-sync-text');
+    const syncNowBtn = document.getElementById('btn-sync-now');
+
+    try {
+        if (!GithubSync.isConfigured()) {
+            throw new Error('PAT가 저장되지 않았습니다. 설정 및 동기화에서 PAT를 입력한 뒤 설정 저장 및 연결을 눌러주세요.');
+        }
+
+        if (syncNowBtn) syncNowBtn.disabled = true;
+        if (syncIndicator) syncIndicator.className = 'sync-status syncing';
+        if (syncText) syncText.textContent = '동기화 중...';
+        setMobileSyncStatus('동기화 중... 클라우드 데이터 확인', 'syncing');
+
+        const localData = getFullAppState();
+        const localCount = countAppData(localData);
+
+        const downloadResult = await GithubSync.downloadData();
+        if (downloadResult.success && downloadResult.data) {
+            const remoteCount = countAppData(downloadResult.data);
+
+            if (localCount === 0 && remoteCount > 0) {
+                restoreFullAppState(downloadResult.data);
+                setMobileSyncStatus(`다운로드 완료 | ${remoteCount}개 항목`, 'online');
+                alert(`클라우드 데이터를 불러왔습니다. (${remoteCount}개 항목)`);
+                updateSyncIndicator();
+                renderSyncLogBox();
+                return;
+            }
+
+            if (remoteCount > localCount) {
+                restoreFullAppState(downloadResult.data);
+                setMobileSyncStatus(`클라우드 최신 데이터 반영 | ${remoteCount}개 항목`, 'online');
+                alert(`클라우드의 더 많은 데이터를 불러왔습니다. (${remoteCount}개 항목)`);
+                updateSyncIndicator();
+                renderSyncLogBox();
+                return;
+            }
+        }
+
+        setMobileSyncStatus('로컬 데이터를 클라우드로 업로드 중...', 'syncing');
+        const uploadResult = await GithubSync.uploadData(localData);
+        const total = countAppData(localData);
+        setMobileSyncStatus(`업로드 완료 | ${total}개 항목`, 'online');
+        alert(`동기화 완료: 현재 기기 데이터를 클라우드에 업로드했습니다. (${total}개 항목)`);
+
+        const gistIdInput = document.getElementById('github-gist-id');
+        if (gistIdInput && uploadResult.gistId) gistIdInput.value = uploadResult.gistId;
+        updateSyncIndicator();
+        renderSyncLogBox();
+    } catch (error) {
+        console.error(error);
+        setMobileSyncStatus(`동기화 실패: ${error.message}`, 'error');
+        alert(`동기화 실패: ${error.message}`);
+        if (syncIndicator) syncIndicator.className = 'sync-status offline';
+        if (syncText) syncText.textContent = '동기화 실패';
+    } finally {
+        if (syncNowBtn) syncNowBtn.disabled = false;
+    }
+}
+
+const __oldInitSettingsSyncPatch = initSettings;
+function initSettings() {
+    if (typeof __oldInitSettingsSyncPatch === 'function') {
+        __oldInitSettingsSyncPatch();
+    }
+
+    const patInput = document.getElementById('github-pat');
+    const gistIdInput = document.getElementById('github-gist-id');
+    const syncNowBtn = document.getElementById('btn-sync-now');
+    const syncForm = document.getElementById('github-sync-form');
+
+    if (typeof GithubSync !== 'undefined') {
+        const settings = GithubSync.getSettings();
+        if (patInput && settings.pat) patInput.value = settings.pat;
+        if (gistIdInput && settings.gistId) gistIdInput.value = settings.gistId;
+        if (syncNowBtn && settings.pat) syncNowBtn.classList.remove('hidden');
+    }
+
+    if (syncForm && !syncForm.dataset.finalSyncPatch) {
+        syncForm.dataset.finalSyncPatch = '1';
+        syncForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const patVal = patInput ? patInput.value.trim() : '';
+            const gistIdVal = gistIdInput ? gistIdInput.value.trim() : '';
+            if (!patVal) {
+                alert('GitHub PAT를 입력해주세요.');
+                return;
+            }
+            GithubSync.saveSettings(patVal, gistIdVal);
+            if (syncNowBtn) syncNowBtn.classList.remove('hidden');
+            updateSyncIndicator();
+            renderSyncLogBox();
+            setMobileSyncStatus('설정 저장 완료 | 동기화 버튼을 눌러주세요', 'online');
+            alert('동기화 설정이 저장되었습니다. 이제 지금 동기화를 눌러주세요.');
+        }, true);
+    }
+
+    updateSyncIndicator();
+    renderSyncLogBox();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        ensureMobileSyncStatusBox();
+        updateSyncIndicator();
+    }, 300);
+});
