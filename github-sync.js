@@ -172,19 +172,3 @@ const AutoSync = {
         }, this._debounceMs);
     }
 };
-
-// HYUNJI APP_ID HARDENING
-(function () {
-    const APP_ID_FIX = 'scheduler_hyunji';
-    window.GS_APP_ID = window.GS_APP_ID || APP_ID_FIX;
-    if (typeof GithubSync !== 'undefined') {
-        GithubSync.KEYS = {
-            PAT: `${APP_ID_FIX}__gs_github_pat`,
-            GIST_ID: `${APP_ID_FIX}__gs_github_gist_id`,
-            LAST_SYNC: `${APP_ID_FIX}__gs_last_sync_time`
-        };
-        GithubSync.FILE_NAME = `${APP_ID_FIX}-scheduler-data.json`;
-        GithubSync.LEGACY_FILE_NAMES = [];
-        GithubSync.GIST_DESCRIPTION = `G-Scheduler Sync Data - ${APP_ID_FIX}`;
-    }
-})();
