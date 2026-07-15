@@ -5,16 +5,19 @@
  * - PAT is stored only in browser localStorage via settings screen
  */
 
+// Site-specific ID. Must match app.js. Change this value for each separate personal page.
+window.GS_APP_ID = window.GS_APP_ID || 'scheduler-user1';
+
 const GithubSync = {
     KEYS: {
-        PAT: 'gs_github_pat',
-        GIST_ID: 'gs_github_gist_id',
-        LAST_SYNC: 'gs_last_sync_time'
+        PAT: `${window.GS_APP_ID}__gs_github_pat`,
+        GIST_ID: `${window.GS_APP_ID}__gs_github_gist_id`,
+        LAST_SYNC: `${window.GS_APP_ID}__gs_last_sync_time`
     },
 
-    FILE_NAME: 'scheduler-data.json',
-    LEGACY_FILE_NAMES: ['scheduler-data.json', 'g-scheduler-data.json'],
-    GIST_DESCRIPTION: 'G-Scheduler Sync Data',
+    FILE_NAME: `${window.GS_APP_ID}-scheduler-data.json`,
+    LEGACY_FILE_NAMES: [],
+    GIST_DESCRIPTION: `G-Scheduler Sync Data - ${window.GS_APP_ID}`,
 
     getSettings() {
         return {
@@ -70,6 +73,7 @@ const GithubSync = {
 
     _findDataFile(files) {
         if (!files) return null;
+        if (files[this.FILE_NAME]) return files[this.FILE_NAME];
         for (const name of this.LEGACY_FILE_NAMES) {
             if (files[name]) return files[name];
         }
@@ -79,9 +83,9 @@ const GithubSync = {
     async findExistingGist() {
         const gists = await this._request('https://api.github.com/gists', { method: 'GET' });
         const found = gists.find(gist => {
-            const hasKnownFile = gist.files && this.LEGACY_FILE_NAMES.some(name => gist.files[name]);
+            const hasAppFile = gist.files && gist.files[this.FILE_NAME];
             const sameDesc = gist.description === this.GIST_DESCRIPTION;
-            return hasKnownFile || sameDesc;
+            return hasAppFile || sameDesc;
         });
 
         if (found) {

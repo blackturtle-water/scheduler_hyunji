@@ -11,12 +11,16 @@ const state = {
     currentDate: new Date() // Used for calendar view
 };
 
+// Site-specific ID. Change this value for each separate personal page.
+window.GS_APP_ID = window.GS_APP_ID || 'scheduler-user1';
+const STORAGE_PREFIX = `${window.GS_APP_ID}__`;
+
 // LocalStorage Keys
 const STORAGE_KEYS = {
-    EVENTS: 'gs_events',
-    TODOS: 'gs_todos',
-    NOTES: 'gs_notes',
-    DDAYS: 'gs_ddays'
+    EVENTS: `${STORAGE_PREFIX}gs_events`,
+    TODOS: `${STORAGE_PREFIX}gs_todos`,
+    NOTES: `${STORAGE_PREFIX}gs_notes`,
+    DDAYS: `${STORAGE_PREFIX}gs_ddays`
 };
 
 // Initialization
