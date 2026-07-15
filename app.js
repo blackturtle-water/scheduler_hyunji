@@ -823,8 +823,10 @@ function setMobileSyncStatus(message, mode = 'offline') {
   const box = ensureMobileSyncStatusBox();
   const text = document.getElementById('mobile-sync-status-text');
   if (!box || !text) return;
+
   box.style.display = 'flex';
   text.textContent = message;
+
   const colors = {
     online: 'rgba(52,211,153,.20)',
     syncing: 'rgba(251,191,36,.22)',
@@ -832,6 +834,21 @@ function setMobileSyncStatus(message, mode = 'offline') {
     error: 'rgba(248,113,113,.24)'
   };
   box.style.background = colors[mode] || colors.offline;
+
+  // 기존 자동 숨김 타이머 제거
+  if (window.__mobileSyncHideTimer) {
+    clearTimeout(window.__mobileSyncHideTimer);
+  }
+
+  // 동기화 중/오류일 때는 계속 표시하여 상태 확인 가능
+  if (mode === 'syncing' || mode === 'error') {
+    return;
+  }
+
+  // 성공/로컬/온라인 상태는 3초 후 자동 숨김
+  window.__mobileSyncHideTimer = setTimeout(() => {
+    box.style.display = 'none';
+  }, 3000);
 }
 
 // ==========================================
