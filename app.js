@@ -11,12 +11,16 @@ const state = {
     currentDate: new Date() // Used for calendar view
 };
 
+// Site-specific ID for separating data between GitHub Pages paths
+window.GS_APP_ID = window.GS_APP_ID || 'scheduler_hyunji';
+const STORAGE_PREFIX = `${window.GS_APP_ID}__`;
+
 // LocalStorage Keys
 const STORAGE_KEYS = {
-    EVENTS: 'gs_events',
-    TODOS: 'gs_todos',
-    NOTES: 'gs_notes',
-    DDAYS: 'gs_ddays'
+    EVENTS: `${STORAGE_PREFIX}gs_events`,
+    TODOS: `${STORAGE_PREFIX}gs_todos`,
+    NOTES: `${STORAGE_PREFIX}gs_notes`,
+    DDAYS: `${STORAGE_PREFIX}gs_ddays`
 };
 
 // Initialization
@@ -1446,3 +1450,22 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSyncIndicator();
     }, 300);
 });
+
+
+// HYUNJI APP ID FINAL CHECK
+(function () {
+    window.GS_APP_ID = window.GS_APP_ID || 'scheduler_hyunji';
+    document.addEventListener('DOMContentLoaded', function () {
+        setTimeout(function () {
+            try {
+                if (typeof setMobileSyncStatus === 'function') {
+                    const patKey = `${window.GS_APP_ID}__gs_github_pat`;
+                    const gistKey = `${window.GS_APP_ID}__gs_github_gist_id`;
+                    const hasPat = !!localStorage.getItem(patKey);
+                    const gistId = localStorage.getItem(gistKey) || '';
+                    setMobileSyncStatus(hasPat ? `클라우드 동기화 | ${window.GS_APP_ID} | Gist: ${gistId ? gistId.slice(0,8) : '미설정'}` : `로컬 모드 | ${window.GS_APP_ID} 전용 PAT/Gist ID 필요`, hasPat ? 'online' : 'offline');
+                }
+            } catch(e) { console.warn('APP_ID status update failed', e); }
+        }, 500);
+    });
+})();
