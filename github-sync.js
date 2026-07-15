@@ -73,7 +73,6 @@ const GithubSync = {
 
     _findDataFile(files) {
         if (!files) return null;
-        if (files[this.FILE_NAME]) return files[this.FILE_NAME];
         for (const name of this.LEGACY_FILE_NAMES) {
             if (files[name]) return files[name];
         }
@@ -83,9 +82,9 @@ const GithubSync = {
     async findExistingGist() {
         const gists = await this._request('https://api.github.com/gists', { method: 'GET' });
         const found = gists.find(gist => {
-            const hasAppFile = gist.files && gist.files[this.FILE_NAME];
+            const hasKnownFile = gist.files && this.LEGACY_FILE_NAMES.some(name => gist.files[name]);
             const sameDesc = gist.description === this.GIST_DESCRIPTION;
-            return hasAppFile || sameDesc;
+            return hasKnownFile || sameDesc;
         });
 
         if (found) {
@@ -178,7 +177,7 @@ const AutoSync = {
 };
 
 
-// HYUNJI FINAL HARDENING
+// HYUNJI TIME FINAL HARDENING
 (function () {
     const APP_ID = 'scheduler_hyunji';
     window.GS_APP_ID = window.GS_APP_ID || APP_ID;
