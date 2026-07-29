@@ -1,8 +1,6 @@
 /**
- * GitHub Gist Sync Module - scheduler_hyunji SAFE VERSION
- * - App-specific localStorage keys
- * - App-specific Gist file name
- * - Manual upload/download friendly
+ * GitHub Gist Sync Module - scheduler_hyunji FINAL SAFE VERSION
+ * Uses app-specific localStorage keys and app-specific Gist file name.
  */
 window.GS_APP_ID = window.GS_APP_ID || 'scheduler_hyunji';
 
@@ -14,11 +12,7 @@ const GithubSync = {
     LAST_SYNC: `${window.GS_APP_ID}__gs_last_sync_time`
   },
   FILE_NAME: `${window.GS_APP_ID}-scheduler-data.json`,
-  LEGACY_FILE_NAMES: [
-    'scheduler-data.json',
-    'g-scheduler-data.json',
-    'gscheduler-data.json'
-  ],
+  LEGACY_FILE_NAMES: ['scheduler-data.json', 'g-scheduler-data.json', 'gscheduler-data.json', 'G-Scheduler Sync Data.json'],
   GIST_DESCRIPTION: `G-Scheduler Sync Data - ${window.GS_APP_ID}`,
 
   getSettings() {
@@ -47,7 +41,6 @@ const GithubSync = {
   async request(url, options = {}) {
     const { pat } = this.getSettings();
     if (!pat) throw new Error('PAT가 저장되지 않았습니다.');
-
     const res = await fetch(url, {
       ...options,
       headers: {
@@ -57,11 +50,9 @@ const GithubSync = {
         ...(options.headers || {})
       }
     });
-
     const text = await res.text();
     let data = null;
     try { data = text ? JSON.parse(text) : null; } catch { data = text; }
-
     if (!res.ok) {
       const msg = data && data.message ? data.message : `HTTP ${res.status}`;
       if (res.status === 401) throw new Error('401 인증 실패: PAT 오류 또는 만료');
@@ -118,11 +109,9 @@ const GithubSync = {
     let { gistId } = this.getSettings();
     if (!gistId) gistId = await this.findExistingGist();
     if (!gistId) return null;
-
     const gist = await this.getGist();
     const file = this.findDataFile(gist);
     if (!file || !file.content) return null;
-
     try {
       return JSON.parse(file.content);
     } catch {
@@ -134,7 +123,6 @@ const GithubSync = {
     let { gistId } = this.getSettings();
     if (!gistId) gistId = await this.findExistingGist();
     if (!gistId) return await this.createGist(data);
-
     const body = {
       description: this.GIST_DESCRIPTION,
       files: {
@@ -150,9 +138,9 @@ const GithubSync = {
 };
 
 const AutoSync = {
-  uploadTimer: null,
-  debounceMs: 2000,
-  syncing: false,
+  _uploadTimer: null,
+  _debounceMs: 2000,
+  _isSyncing: false,
   scheduleUpload() {
     // Safe sync version: automatic cloud upload is disabled intentionally.
     // Use [클라우드 업로드] manually to prevent different devices from overwriting each other.
