@@ -65,11 +65,9 @@ const GithubSync = {
 
   findDataFile(gist) {
     if (!gist || !gist.files) return null;
-    if (gist.files[this.FILE_NAME]) return gist.files[this.FILE_NAME];
-    for (const name of this.LEGACY_FILE_NAMES) {
-      if (gist.files[name]) return gist.files[name];
-    }
-    return Object.values(gist.files).find(f => f.filename && f.filename.toLowerCase().endsWith('.json')) || null;
+    // 2번 사이트는 반드시 scheduler_hyunji 전용 파일만 사용합니다.
+    // 같은 Gist ID에 1번 사이트 파일이 있어도 섞어 불러오지 않습니다.
+    return gist.files[this.FILE_NAME] || null;
   },
 
   async getGist() {
